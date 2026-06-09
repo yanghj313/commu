@@ -148,9 +148,9 @@ td .mini{padding:4px 9px;border-radius:6px;font-size:.8rem}
   background:var(--ink);color:var(--hanji);padding:13px 22px;border-radius:10px;border:1px solid var(--gold);
   box-shadow:var(--shadow);opacity:0;transition:.28s;font-size:.94rem;pointer-events:none;max-width:90vw;text-align:center}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-#modal{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;padding:20px;
+#modal,#use-modal{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;padding:20px;
   background:rgba(8,10,16,.7);backdrop-filter:blur(3px)}
-#modal.show{display:flex}
+#modal.show,#use-modal.show{display:flex}
 .modal-card{background:linear-gradient(180deg,var(--night-soft),var(--night-deep));border:1px solid var(--gold);
   border-radius:14px;padding:26px;max-width:380px;width:100%;text-align:center;box-shadow:var(--shadow)}
 .modal-card .me{font-size:2.6rem;margin-bottom:10px}
@@ -322,6 +322,12 @@ td .mini{padding:4px 9px;border-radius:6px;font-size:.8rem}
 <div id="modal"><div class="modal-card">
   <div class="me" id="m-emoji">🪙</div><h4 id="m-title"></h4><p id="m-body"></p>
   <div class="modal-btns"><button class="btn btn-line" id="m-cancel">취소</button><button class="btn btn-gold" id="m-ok">확인</button></div>
+</div></div>
+<div id="use-modal"><div class="modal-card">
+  <div class="me" id="um-emoji">🎁</div><h4 id="um-title"></h4><p id="um-body"></p>
+  <div class="field" style="text-align:left"><label>누구에게 사용할까요?</label><select id="use-target" class="inp"></select></div>
+  <p style="font-size:.8rem;color:var(--ink-soft);filter:brightness(1.6);margin:-6px 0 18px">사용하면 물건은 보따리에서 사라집니다.</p>
+  <div class="modal-btns"><button class="btn btn-line" id="um-cancel">취소</button><button class="btn btn-gold" id="um-ok">사용</button></div>
 </div></div>
 
 <script>
@@ -508,7 +514,7 @@ function renderInv(){
     el.innerHTML=`<div class="emoji">${i.emoji}</div><div class="nm">${i.name}</div>
       ${eff?`<div class="effect">${eff}</div>`:''}
       <div class="act"><button class="card-btn use-btn">사용</button></div>`;
-    el.querySelector('button').onclick=()=>useItem(i.iid);g.appendChild(el);});
+    el.querySelector('button').onclick=()=>openUseModal(i.iid);g.appendChild(el);});
 }
 function recipientOptions(){return DB.users.filter(u=>u.id!==me.id).map(u=>`<option value="${u.id}">${u.name}</option>`).join('');}
 function renderGive(){
@@ -610,26 +616,50 @@ function fmtRemain(ms){
   if(h>0)return h+'시간 '+(tm%60)+'분 남음';
   return tm+'분 '+(s%60)+'초 남음';
 }
-function useItem(iid){
+function openUseModal(iid){
   const cur=(me.inventory||[]).find(i=>i.iid===iid);if(!cur)return;
   const eff=invEffect(cur),isClear=/해제/.test(eff),dur=parseDurationMs(eff);
-  let msg;
-  if(isClear)msg=`${cur.name}을(를) 사용해 걸려 있는 상태를 모두 해제할까요? (아이템은 사라집니다)`;
-  else if(dur)msg=`${cur.name}을(를) 사용할까요? "${eff}" 상태가 걸리고 아이템은 사라집니다.`;
-  else msg=`${cur.name}을(를) 사용할까요? 아이템은 사라집니다.${eff?` (효과: ${eff})`:''}`;
-  confirmModal(cur.emoji,`${cur.name} 사용`,msg,async()=>{
-    const u=await reloadUser(me.id);u.statuses=u.statuses||[];
-    const idx=(u.inventory||[]).findIndex(i=>i.iid===iid);
-    if(idx<0){applyUser(u);renderAll();toast('이미 사용된 물건이에요.');return;}
-    const it=u.inventory[idx];u.inventory.splice(idx,1);
+  document.getElementById('um-emoji').textContent=cur.emoji;
+  document.getElementById('um-title').textContent=`${cur.name} 사용`;
+  document.getElementById('um-body').textContent=isClear?'대상의 걸린 상태를 모두 해제합니다.'
+    :(dur?`효과: ${eff}`:(eff?`효과: ${eff}`:'특별한 지속 효과는 없습니다.'));
+  const opts=[`<option value="${me.id}">나 자신</option>`]
+    .concat(DB.users.filter(u=>u.id!==me.id).map(u=>`<option value="${u.id}">${u.name}</option>`)).join('');
+  document.getElementById('use-target').innerHTML=opts;
+  const m=document.getElementById('use-modal');m.classList.add('show');
+  const ok=document.getElementById('um-ok'),cancel=document.getElementById('um-cancel');
+  const close=()=>{m.classList.remove('show');ok.onclick=null;cancel.onclick=null;};
+  ok.onclick=async()=>{ok.disabled=true;try{await applyUse(iid,document.getElementById('use-target').value);}catch(e){toast('처리 중 오류: '+e.message);}ok.disabled=false;close();};
+  cancel.onclick=close;
+}
+async function applyUse(iid,targetId){
+  const from=await reloadUser(me.id);from.statuses=from.statuses||[];
+  const idx=(from.inventory||[]).findIndex(i=>i.iid===iid);
+  if(idx<0){applyUser(from);renderAll();toast('이미 사용된 물건이에요.');return;}
+  const it=from.inventory[idx];const eff=invEffect(it),isClear=/해제/.test(eff),dur=parseDurationMs(eff);
+  from.inventory.splice(idx,1);
+  if(targetId===me.id){ // 나 자신
     let note;
-    if(isClear){const n=u.statuses.length;u.statuses=[];note=`${it.name} 사용 — 상태 ${n}건 해제`;}
-    else if(dur){u.statuses.push({sid:uid(),name:it.name,emoji:it.emoji,effect:eff,until:Date.now()+dur});note=`${it.name} 사용 — "${eff}"`;}
+    if(isClear){const n=from.statuses.length;from.statuses=[];note=`${it.name} 사용 — 상태 ${n}건 해제`;}
+    else if(dur){from.statuses.push({sid:uid(),name:it.name,emoji:it.emoji,effect:eff,until:Date.now()+dur});note=`${it.name} 사용 — "${eff}"`;}
     else note=`${it.name} 사용${eff?` — ${eff}`:''}`;
-    (u.log=u.log||[]).unshift({t:Date.now(),text:note,delta:0});
-    await persistUser(u);renderAll();
+    (from.log=from.log||[]).unshift({t:Date.now(),text:note,delta:0});
+    await persistUser(from);renderAll();
     toast(isClear?'걸린 상태를 모두 해제했어요.':(dur?'상태가 걸렸어요.':'사용했어요.'));
-  });
+    return;
+  }
+  const to=await reloadUser(targetId);to.statuses=to.statuses||[];
+  let fnote,tnote;
+  if(isClear){const n=to.statuses.length;to.statuses=[];
+    fnote=`${it.name}을(를) ${to.name}님에게 사용 — 상태 ${n}건 해제`;tnote=`${from.name}님이 ${it.name} 사용 — 상태 ${n}건 해제`;}
+  else if(dur){to.statuses.push({sid:uid(),name:it.name,emoji:it.emoji,effect:eff,until:Date.now()+dur,from:from.name});
+    fnote=`${it.name}을(를) ${to.name}님에게 사용 — "${eff}"`;tnote=`${from.name}님이 ${it.name} 사용 — "${eff}"`;}
+  else{fnote=`${it.name}을(를) ${to.name}님에게 사용${eff?` — ${eff}`:''}`;tnote=`${from.name}님이 ${it.name} 사용${eff?` — ${eff}`:''}`;}
+  (from.log=from.log||[]).unshift({t:Date.now(),text:fnote,delta:0});
+  (to.log=to.log||[]).unshift({t:Date.now(),text:tnote,delta:0});
+  await persistUser(to);await persistUser(from);renderAll();
+  toast(`${to.name}님에게 ${it.name}을(를) 사용했어요.`);
+  postToot(`${from.name}님이 ${it.name}${josaER(it.name)} ${to.name}님에게 사용하였습니다.`);
 }
 function removeStatus(sid){
   const s=(me.statuses||[]).find(x=>x.sid===sid);if(!s)return;
@@ -648,7 +678,7 @@ function renderStatuses(){
   arr.forEach(s=>{const el=document.createElement('div');el.className='stat'+(s.until?'':' perm');
     const remain=s.until?`<span class="sremain" data-until="${s.until}">${fmtRemain(s.until-now)}</span>`:'';
     el.innerHTML=`<div class="se">${s.emoji}</div>
-      <div class="sbody"><div class="sname">${s.name}</div><div class="seffect">${s.effect}</div></div>
+      <div class="sbody"><div class="sname">${s.name}</div><div class="seffect">${s.effect}${s.from?` · ${s.from}님이 걸어둠`:''}</div></div>
       ${remain}<button class="sx" title="해제">✕</button>`;
     el.querySelector('.sx').onclick=()=>removeStatus(s.sid);list.appendChild(el);});
 }
