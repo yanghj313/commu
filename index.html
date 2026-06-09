@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Nanum+Myeongjo:wght@400;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{
   --night:#161d2e;--night-deep:#10141f;--night-soft:#1f283d;
@@ -160,6 +161,23 @@ td .mini{padding:4px 9px;border-radius:6px;font-size:.8rem}
 @keyframes pulse{0%,100%{opacity:.55}50%{opacity:1}}
 #loading p{font-family:var(--serif);color:var(--gold-soft);letter-spacing:.1em}
 @media(max-width:560px){.brand{font-size:2.3rem}.bar-brand{font-size:1rem}.whoami{width:100%;margin-left:0}.sec-title{font-size:1.3rem}}
+.tab-badge{display:inline-block;min-width:18px;padding:0 5px;margin-left:6px;border-radius:999px;background:var(--vermilion);
+  color:#fff;font-size:.7rem;line-height:18px;text-align:center;font-family:var(--sans);vertical-align:1px}
+.use-btn{background:var(--jade);color:#fff;margin-top:4px}
+.use-btn:hover{filter:brightness(1.08)}
+.test-toggle{display:flex;align-items:center;gap:9px;font-size:.86rem;color:var(--gold-soft);margin-bottom:18px;cursor:pointer}
+.test-toggle input{width:17px;height:17px;accent-color:var(--gold)}
+.test-toggle b{color:var(--hanji)}
+.stat{display:flex;align-items:center;gap:14px;background:linear-gradient(180deg,rgba(95,143,124,.12),rgba(31,40,61,.5));
+  border:1px solid rgba(95,143,124,.35);border-radius:12px;padding:13px 16px;margin-bottom:10px}
+.stat .se{font-size:1.9rem;line-height:1}
+.stat .sbody{flex:1;min-width:0}
+.stat .sname{font-family:var(--serif);font-weight:700;font-size:1.05rem}
+.stat .seffect{font-size:.84rem;color:var(--gold-soft);margin-top:1px}
+.stat .sremain{font-family:var(--serif);font-weight:700;color:var(--hanji);white-space:nowrap;font-variant-numeric:tabular-nums}
+.stat .sx{flex:none;width:30px;height:30px;border-radius:8px;border:1px solid var(--line);color:#e0917f;font-size:1rem}
+.stat .sx:hover{border-color:#e0917f;background:rgba(224,145,127,.12)}
+.stat.perm{border-color:var(--line);background:linear-gradient(180deg,rgba(214,171,83,.1),rgba(31,40,61,.5))}
 </style>
 </head>
 <body>
@@ -201,6 +219,7 @@ td .mini{padding:4px 9px;border-radius:6px;font-size:.8rem}
     <nav class="tabs">
       <button class="tab active" data-tab="shop">상점</button>
       <button class="tab" data-tab="inv">내 보따리</button>
+      <button class="tab" data-tab="status">상태<span id="status-badge" class="tab-badge hidden">0</span></button>
       <button class="tab" data-tab="give">양도</button>
       <button class="tab" data-tab="earn">화폐 적립</button>
       <button class="tab" data-tab="log">내역</button>
@@ -217,6 +236,12 @@ td .mini{padding:4px 9px;border-radius:6px;font-size:.8rem}
       <div class="sec-head"><h2 class="sec-title">내 보따리</h2></div>
       <p class="sec-desc">구입하거나 양도받은 물건들입니다.</p>
       <div class="grid" id="inv-grid"></div>
+    </section>
+    <section id="panel-status" class="panel hidden">
+      <div class="sec-head"><h2 class="sec-title">상태</h2></div>
+      <p class="sec-desc">아이템을 사용해 걸린 효과와 남은 시간입니다. 잘못 걸린 상태는 직접 해제할 수 있어요.</p>
+      <label class="test-toggle"><input type="checkbox" id="test-mode"> 빠른 테스트 — 시간/분을 <b>초</b>로 단축해 적용 (예: 12시간→12초)</label>
+      <div id="status-list"></div>
     </section>
     <section id="panel-give" class="panel hidden">
       <div class="sec-head"><h2 class="sec-title">양도</h2></div>
@@ -272,6 +297,7 @@ td .mini{padding:4px 9px;border-radius:6px;font-size:.8rem}
   <main class="wrap" style="padding-top:26px">
     <div class="toolbar">
       <button class="btn btn-ghost" id="adm-export">데이터 내보내기(JSON)</button>
+      <button class="btn btn-ghost" id="adm-roster">명단 엑셀 내보내기</button>
       <button class="btn btn-ghost" id="adm-import">데이터 불러오기</button>
       <button class="btn btn-ghost" id="adm-add-item">상품 추가</button>
       <button class="btn btn-ghost" id="adm-regen">전체 고유번호 재발급</button>
@@ -309,6 +335,28 @@ const SUPABASE_URL = 'https://fghubmyxnlokifxktokf.supabase.co';   // 예: 'http
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZnaHVibXl4bmxva2lmeGt0b2tmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5OTY5OTIsImV4cCI6MjA5NjU3Mjk5Mn0.yth_Vvao5b1uz123V1UO96MBYSZcAfkGiOR8Q0BZlRI';   // Supabase의 anon public 키
 /* ============================================================ */
 
+/* ============================================================
+   ▼▼▼  마스토돈 자동 글 설정 (선택) ▼▼▼
+   - 비워두면 마스토돈 글은 올리지 않습니다.
+   - 채우면 구매·양도 때 상점 계정으로 글이 자동으로 올라갑니다.
+   - 토큰: 마스토돈 [환경설정 → 개발 → 새 앱]에서 write:statuses 권한으로 발급.
+   ============================================================ */
+const MASTODON_URL = '';            // 예: 'https://your.instance'  (끝에 / 없이)
+const MASTODON_TOKEN = '';          // 상점 계정의 액세스 토큰 (write:statuses)
+const MASTODON_VISIBILITY = 'unlisted';  // 'public' | 'unlisted' | 'private'
+/* ============================================================ */
+
+const USE_MASTODON = !!(MASTODON_URL && MASTODON_TOKEN);
+async function postToot(text){
+  if(!USE_MASTODON)return;
+  try{
+    await fetch(MASTODON_URL+'/api/v1/statuses',{method:'POST',
+      headers:{Authorization:'Bearer '+MASTODON_TOKEN,'Content-Type':'application/json'},
+      body:JSON.stringify({status:text,visibility:MASTODON_VISIBILITY})});
+  }catch(e){toast('마스토돈 알림 전송 실패 (거래는 정상 처리됨)');}
+}
+function josaER(w){if(!w)return '를';const c=w.charCodeAt(w.length-1);
+  if(c>=0xAC00&&c<=0xD7A3)return ((c-0xAC00)%28)?'을':'를';return '를';}
 const USE_CLOUD = !!(SUPABASE_URL && SUPABASE_KEY);
 const LKEY='wolha_shop_v1', CUR='wolha_current', ADMIN_CODE='월하운영';
 
@@ -339,7 +387,7 @@ function genCode(used){let c;do{c=String(Math.floor(1000+Math.random()*9000));}w
 function buildSeed(){
   const used=new Set();
   const users=USERS_SEED.map((u,i)=>({id:'u'+i,name:u[0],code:genCode(used),balance:u[1],
-    inventory:(u[2]||[]).map(n=>({iid:uid(),name:n,emoji:EMOJI[n]||'🎀'})),log:[]}));
+    inventory:(u[2]||[]).map(n=>({iid:uid(),name:n,emoji:EMOJI[n]||'🎀'})),log:[],statuses:[]}));
   return {users,items:ITEMS_SEED.map(x=>({...x}))};
 }
 function userById(id){return DB.users.find(u=>u.id===id);}
@@ -384,7 +432,7 @@ async function reloadUser(id){
 function applyUser(data){const u=userById(data.id);if(u)Object.assign(u,data);return u;}
 async function persistUser(u){
   applyUser(u);
-  if(USE_CLOUD)await api('users?id=eq.'+u.id,{method:'PATCH',body:{balance:u.balance,inventory:u.inventory,log:u.log},prefer:'return=minimal'});
+  if(USE_CLOUD)await api('users?id=eq.'+u.id,{method:'PATCH',body:{balance:u.balance,inventory:u.inventory,log:u.log,statuses:u.statuses||[]},prefer:'return=minimal'});
   else saveLocal();
 }
 async function refresh(){
@@ -418,24 +466,25 @@ function tryLogin(){
   if(!/^\d{4}$/.test(code)){err.textContent='고유번호 4자리를 입력하세요.';return;}
   const u=DB.users.find(x=>x.code===code);
   if(!u){err.textContent='일치하는 고유번호가 없습니다. 운영자에게 문의하세요.';return;}
-  err.textContent='';me=u;localStorage.setItem(CUR,u.id);enterApp();
+  err.textContent='';me=u;localStorage.setItem(CUR,u.id);document.getElementById('login-code').value='';enterApp();
 }
 function enterApp(){
+  me.statuses=me.statuses||[];
   document.getElementById('login').classList.add('hidden');
   document.getElementById('admin').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   const banner=document.getElementById('mode-banner');
   if(USE_CLOUD){banner.classList.add('hidden');}
   else{banner.classList.remove('hidden');banner.innerHTML='⚠ 로컬 모드입니다. 이 브라우저에서만 저장돼요. 여러 명이 공유하려면 코드 상단에 Supabase 주소·키를 넣으세요.';}
-  switchTab('shop');refresh();renderAll();
+  startTicker();switchTab('shop');refresh();renderAll();
 }
-function logout(){me=null;localStorage.removeItem(CUR);
+function logout(){stopTicker();me=null;localStorage.removeItem(CUR);
   document.getElementById('login-code').value='';
   document.getElementById('app').classList.add('hidden');
   document.getElementById('login').classList.remove('hidden');window.scrollTo(0,0);}
 
 /* ---------- 렌더 ---------- */
-function renderAll(){if(!me)return;renderHeader();renderShop();renderInv();renderGive();renderEarnCalc();renderLog();}
+function renderAll(){if(!me)return;me.statuses=me.statuses||[];renderHeader();renderShop();renderInv();renderStatuses();renderGive();renderEarnCalc();renderLog();}
 function renderHeader(){document.getElementById('bar-name').innerHTML=`${me.name}<span class="uid">#${me.code}</span>`;
   document.getElementById('bar-bal').textContent=me.balance;}
 function ownsAny(name){return (me.inventory||[]).some(i=>i.name===name);}
@@ -454,8 +503,11 @@ function renderShop(){
 function renderInv(){
   const g=document.getElementById('inv-grid');g.innerHTML='';const inv=me.inventory||[];
   if(!inv.length){g.innerHTML='<div class="empty" style="grid-column:1/-1"><div class="em">🧺</div>보따리가 비어 있어요. 상점에서 물건을 구입해 보세요.</div>';return;}
-  inv.forEach(i=>{const el=document.createElement('div');el.className='card';
-    el.innerHTML=`<div class="emoji">${i.emoji}</div><div class="nm">${i.name}</div>`;g.appendChild(el);});
+  inv.forEach(i=>{const el=document.createElement('div');el.className='card';const eff=invEffect(i);
+    el.innerHTML=`<div class="emoji">${i.emoji}</div><div class="nm">${i.name}</div>
+      ${eff?`<div class="effect">${eff}</div>`:''}
+      <div class="act"><button class="card-btn use-btn">사용</button></div>`;
+    el.querySelector('button').onclick=()=>useItem(i.iid);g.appendChild(el);});
 }
 function recipientOptions(){return DB.users.filter(u=>u.id!==me.id).map(u=>`<option value="${u.id}">${u.name}</option>`).join('');}
 function renderGive(){
@@ -488,9 +540,10 @@ function buy(it){
   confirmModal(it.emoji,`${it.name} 구입`,`${it.price}전을 지불하고 ${it.name}을(를) 구입할까요? (현재 ${me.balance}전)`,async()=>{
     const u=await reloadUser(me.id);
     if(u.balance<it.price){applyUser(u);renderAll();toast('잔액이 바뀌었어요. 다시 확인해 주세요.');return;}
-    u.balance-=it.price;(u.inventory=u.inventory||[]).push({iid:uid(),name:it.name,emoji:it.emoji});
+    u.balance-=it.price;(u.inventory=u.inventory||[]).push({iid:uid(),name:it.name,emoji:it.emoji,effect:it.effect||''});
     (u.log=u.log||[]).unshift({t:Date.now(),text:`${it.name} 구입`,delta:-it.price});
     await persistUser(u);renderAll();toast(`${it.name}을(를) 보따리에 담았어요.`);
+    postToot(`${me.name}님이 ${it.name}${josaER(it.name)} 구매하였습니다.`);
   });
 }
 function giveItem(){
@@ -502,10 +555,11 @@ function giveItem(){
     const idx=(from.inventory||[]).findIndex(i=>i.iid===giveSel);
     if(idx<0){applyUser(from);renderAll();toast('이미 처리된 물건이에요.');return;}
     const item=from.inventory[idx];from.inventory.splice(idx,1);
-    (to.inventory=to.inventory||[]).push({iid:uid(),name:item.name,emoji:item.emoji});
+    (to.inventory=to.inventory||[]).push({iid:uid(),name:item.name,emoji:item.emoji,effect:item.effect||invEffect(item)});
     (from.log=from.log||[]).unshift({t:Date.now(),text:`${item.name} → ${to.name} 양도`,delta:0});
     (to.log=to.log||[]).unshift({t:Date.now(),text:`${from.name}님에게서 ${item.name} 받음`,delta:0});
     await persistUser(to);await persistUser(from);renderAll();toast(`${to.name}님에게 ${item.name}을(를) 건넸어요.`);
+    postToot(`${from.name}님이 ${item.name}${josaER(item.name)} ${to.name}님에게 양도하였습니다.`);
   });
 }
 function giveMoney(){
@@ -522,6 +576,7 @@ function giveMoney(){
     (to.log=to.log||[]).unshift({t:Date.now(),text:`${from.name}님에게서 화폐 받음`,delta:+amt});
     await persistUser(to);await persistUser(from);
     document.getElementById('give-amt').value='';renderAll();toast(`${to.name}님에게 ${amt}전을 보냈어요.`);
+    postToot(`${from.name}님이 ${to.name}님에게 ${amt}전을 양도하였습니다.`);
   });
 }
 function earn(){
@@ -537,10 +592,88 @@ function earn(){
   });
 }
 
+/* ---------- 상태(효과) ---------- */
+let testMode=false, ticker=null;
+function invEffect(item){if(item&&item.effect)return item.effect;const d=DB.items.find(x=>x.name===(item&&item.name));return d?d.effect:'';}
+function parseDurationMs(effect){
+  if(!effect)return null;
+  const h=effect.match(/(\d+)\s*시간/),m=effect.match(/(\d+)\s*분/);
+  if(h)return testMode?(+h[1])*1000:(+h[1])*3600000;
+  if(m)return testMode?(+m[1])*1000:(+m[1])*60000;
+  return null;
+}
+function fmtRemain(ms){
+  if(ms<=0)return '곧 해제';
+  const s=Math.ceil(ms/1000);if(s<60)return s+'초 남음';
+  const tm=Math.floor(s/60),h=Math.floor(tm/60);
+  if(h>0)return h+'시간 '+(tm%60)+'분 남음';
+  return tm+'분 '+(s%60)+'초 남음';
+}
+function useItem(iid){
+  const cur=(me.inventory||[]).find(i=>i.iid===iid);if(!cur)return;
+  const eff=invEffect(cur),isClear=/해제/.test(eff),dur=parseDurationMs(eff);
+  let msg;
+  if(isClear)msg=`${cur.name}을(를) 사용해 걸려 있는 상태를 모두 해제할까요? (아이템은 사라집니다)`;
+  else if(dur)msg=`${cur.name}을(를) 사용할까요? "${eff}" 상태가 걸리고 아이템은 사라집니다.`;
+  else msg=`${cur.name}을(를) 사용할까요? 아이템은 사라집니다.${eff?` (효과: ${eff})`:''}`;
+  confirmModal(cur.emoji,`${cur.name} 사용`,msg,async()=>{
+    const u=await reloadUser(me.id);u.statuses=u.statuses||[];
+    const idx=(u.inventory||[]).findIndex(i=>i.iid===iid);
+    if(idx<0){applyUser(u);renderAll();toast('이미 사용된 물건이에요.');return;}
+    const it=u.inventory[idx];u.inventory.splice(idx,1);
+    let note;
+    if(isClear){const n=u.statuses.length;u.statuses=[];note=`${it.name} 사용 — 상태 ${n}건 해제`;}
+    else if(dur){u.statuses.push({sid:uid(),name:it.name,emoji:it.emoji,effect:eff,until:Date.now()+dur});note=`${it.name} 사용 — "${eff}"`;}
+    else note=`${it.name} 사용${eff?` — ${eff}`:''}`;
+    (u.log=u.log||[]).unshift({t:Date.now(),text:note,delta:0});
+    await persistUser(u);renderAll();
+    toast(isClear?'걸린 상태를 모두 해제했어요.':(dur?'상태가 걸렸어요.':'사용했어요.'));
+  });
+}
+function removeStatus(sid){
+  const s=(me.statuses||[]).find(x=>x.sid===sid);if(!s)return;
+  confirmModal('🫧','상태 해제',`"${s.effect}" 상태를 해제할까요?`,async()=>{
+    const u=await reloadUser(me.id);u.statuses=(u.statuses||[]).filter(x=>x.sid!==sid);
+    (u.log=u.log||[]).unshift({t:Date.now(),text:`상태 해제 — ${s.name}`,delta:0});
+    await persistUser(u);renderAll();toast('상태를 해제했어요.');
+  });
+}
+function renderStatuses(){
+  const list=document.getElementById('status-list');if(!list)return;
+  const now=Date.now(),arr=(me.statuses||[]).filter(s=>!s.until||s.until>now);
+  updateStatusBadge();
+  if(!arr.length){list.innerHTML='<div class="empty"><div class="em">🌙</div>지금 걸린 상태가 없어요. 보따리에서 아이템을 사용하면 여기 나타납니다.</div>';return;}
+  list.innerHTML='';
+  arr.forEach(s=>{const el=document.createElement('div');el.className='stat'+(s.until?'':' perm');
+    const remain=s.until?`<span class="sremain" data-until="${s.until}">${fmtRemain(s.until-now)}</span>`:'';
+    el.innerHTML=`<div class="se">${s.emoji}</div>
+      <div class="sbody"><div class="sname">${s.name}</div><div class="seffect">${s.effect}</div></div>
+      ${remain}<button class="sx" title="해제">✕</button>`;
+    el.querySelector('.sx').onclick=()=>removeStatus(s.sid);list.appendChild(el);});
+}
+function updateStatusBadge(){
+  const b=document.getElementById('status-badge');if(!b)return;const now=Date.now();
+  const n=me&&me.statuses?me.statuses.filter(s=>!s.until||s.until>now).length:0;
+  if(n>0){b.textContent=n;b.classList.remove('hidden');}else b.classList.add('hidden');
+}
+function startTicker(){stopTicker();ticker=setInterval(tick,1000);}
+function stopTicker(){if(ticker){clearInterval(ticker);ticker=null;}}
+async function tick(){
+  if(!me||!me.statuses)return;const now=Date.now();
+  document.querySelectorAll('#status-list .sremain').forEach(el=>{el.textContent=fmtRemain((+el.dataset.until)-now);});
+  const live=me.statuses.filter(s=>!s.until||s.until>now);
+  if(live.length!==me.statuses.length){
+    const expired=me.statuses.filter(s=>s.until&&s.until<=now);me.statuses=live;
+    try{const u=await reloadUser(me.id);u.statuses=(u.statuses||[]).filter(s=>!s.until||s.until>now);await persistUser(u);}catch(e){}
+    renderStatuses();
+    if(expired.length)toast(`${expired.map(e=>e.name).join(', ')} 효과가 끝났어요.`);
+  }
+}
+
 /* ---------- 탭 ---------- */
 function switchTab(name){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===name));
-  ['shop','inv','give','earn','log'].forEach(n=>document.getElementById('panel-'+n).classList.toggle('hidden',n!==name));
+  ['shop','inv','status','give','earn','log'].forEach(n=>document.getElementById('panel-'+n).classList.toggle('hidden',n!==name));
   if(me)refresh();
 }
 
@@ -592,6 +725,23 @@ function adminExport(){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download=`월하순라청_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);
 }
+function adminExportRoster(){
+  const date=new Date().toISOString().slice(0,10);
+  const rows=DB.users.slice().sort((a,b)=>a.name.localeCompare(b.name,'ko'))
+    .map(u=>({'이름':u.name,'고유번호':u.code||'(미발급)','보유 화폐(전)':u.balance,'보따리(개)':(u.inventory||[]).length}));
+  if(window.XLSX){
+    const ws=XLSX.utils.json_to_sheet(rows);
+    ws['!cols']=[{wch:12},{wch:12},{wch:14},{wch:10}];
+    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'명단');
+    XLSX.writeFile(wb,`월하순라청_명단_${date}.xlsx`);toast('명단 엑셀을 내려받았어요.');
+  }else{ // CDN 차단 시 CSV로 대체 (엑셀에서 열림)
+    const head=Object.keys(rows[0]);
+    const csv=[head.join(',')].concat(rows.map(r=>head.map(k=>`"${String(r[k]).replace(/"/g,'""')}"`).join(','))).join('\r\n');
+    const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download=`월하순라청_명단_${date}.csv`;a.click();URL.revokeObjectURL(a.href);toast('명단 CSV를 내려받았어요(엑셀에서 열림).');
+  }
+}
 async function adminImport(file){
   const text=await file.text();let d;
   try{d=JSON.parse(text);if(!d.users||!d.items)throw 0;}catch(e){alert('올바른 데이터 파일이 아닙니다.');return;}
@@ -622,9 +772,12 @@ document.getElementById('give-item-btn').onclick=giveItem;
 document.getElementById('give-money-btn').onclick=giveMoney;
 document.getElementById('earn-btn').onclick=earn;
 document.querySelectorAll('.earn-in').forEach(i=>i.addEventListener('input',renderEarnCalc));
+document.getElementById('test-mode').onchange=e=>{testMode=e.target.checked;
+  toast(testMode?'빠른 테스트 켜짐 — 시간/분이 초로 적용돼요.':'빠른 테스트 꺼짐');};
 document.getElementById('admin-exit').onclick=()=>{document.getElementById('admin').classList.add('hidden');
-  if(me)enterApp();else document.getElementById('login').classList.remove('hidden');};
+  if(me)enterApp();else{document.getElementById('login').classList.remove('hidden');}};
 document.getElementById('adm-export').onclick=adminExport;
+document.getElementById('adm-roster').onclick=adminExportRoster;
 document.getElementById('adm-import').onclick=()=>document.getElementById('adm-file').click();
 document.getElementById('adm-file').onchange=e=>{if(e.target.files[0])adminImport(e.target.files[0]);e.target.value='';};
 document.getElementById('adm-add-item').onclick=adminAddItem;
@@ -643,7 +796,7 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&me)refres
   document.getElementById('loading').classList.add('hidden');
   const cur=localStorage.getItem(CUR);const u=cur?userById(cur):null;
   if(u){me=u;enterApp();}
-  else document.getElementById('login').classList.remove('hidden');
+  else{document.getElementById('login').classList.remove('hidden');}
 })();
 </script>
 </body>
