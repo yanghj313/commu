@@ -54,6 +54,8 @@ input,select{font-family:var(--sans)}
 .inp{width:100%;padding:13px 14px;border-radius:10px;border:1px solid var(--line);
   background:rgba(243,233,210,.06);color:var(--hanji);font-size:1rem;outline:none;transition:.15s}
 .inp:focus{border-color:var(--gold);background:rgba(243,233,210,.1)}
+select.inp{appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' fill='none' stroke='%23d6ab53' stroke-width='1.6'/></svg>");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px}
+.inp option{background-color:#1f283d;color:var(--hanji)}
 .inp.code-inp{text-align:center;letter-spacing:.5em;font-size:1.5rem;font-family:var(--serif);padding-left:.5em}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 20px;border-radius:10px;
   font-weight:600;font-size:.98rem;transition:.15s;border:1px solid transparent}
@@ -240,7 +242,6 @@ td .mini{padding:4px 9px;border-radius:6px;font-size:.8rem}
     <section id="panel-status" class="panel hidden">
       <div class="sec-head"><h2 class="sec-title">상태</h2></div>
       <p class="sec-desc">아이템을 사용해 걸린 효과와 남은 시간입니다. 잘못 걸린 상태는 직접 해제할 수 있어요.</p>
-      <label class="test-toggle"><input type="checkbox" id="test-mode"> 빠른 테스트 — 시간/분을 <b>초</b>로 단축해 적용 (예: 12시간→12초)</label>
       <div id="status-list"></div>
     </section>
     <section id="panel-give" class="panel hidden">
@@ -772,8 +773,6 @@ document.getElementById('give-item-btn').onclick=giveItem;
 document.getElementById('give-money-btn').onclick=giveMoney;
 document.getElementById('earn-btn').onclick=earn;
 document.querySelectorAll('.earn-in').forEach(i=>i.addEventListener('input',renderEarnCalc));
-document.getElementById('test-mode').onchange=e=>{testMode=e.target.checked;
-  toast(testMode?'빠른 테스트 켜짐 — 시간/분이 초로 적용돼요.':'빠른 테스트 꺼짐');};
 document.getElementById('admin-exit').onclick=()=>{document.getElementById('admin').classList.add('hidden');
   if(me)enterApp();else{document.getElementById('login').classList.remove('hidden');}};
 document.getElementById('adm-export').onclick=adminExport;
